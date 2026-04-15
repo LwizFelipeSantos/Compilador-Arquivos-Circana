@@ -1,0 +1,6 @@
+{
+  "name": "Excel Data Merger",
+  "description": "Upload Sales, Prices, and Products Excel files to merge and generate a consolidated CSV report.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}

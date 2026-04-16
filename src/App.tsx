@@ -4,7 +4,8 @@
  */
 
 import React, { useState } from 'react';
-import { Download, AlertCircle, CheckCircle2, Loader2, Database } from 'lucide-react';
+import { Download, AlertCircle, CheckCircle2, Loader2, Database, Filter } from 'lucide-react';
+import Papa from 'papaparse';
 import { processFiles } from './lib/processor';
 
 export default function App() {
@@ -16,6 +17,9 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [errors, setErrors] = useState<string[]>([]);
   const [csvData, setCsvData] = useState<string | null>(null);
+  const [resultData, setResultData] = useState<any[] | null>(null);
+  const [availableLojas, setAvailableLojas] = useState<string[]>([]);
+  const [selectedLojas, setSelectedLojas] = useState<string[]>([]);
 
   const handleProcess = async () => {
     if (!vendasFile || !precosFile || !produtosFile) {
@@ -27,12 +31,24 @@ export default function App() {
     setError(null);
     setErrors([]);
     setCsvData(null);
+    setResultData(null);
+    setAvailableLojas([]);
+    setSelectedLojas([]);
 
     try {
       const result = await processFiles(vendasFile, precosFile, produtosFile);
       
-      if (result.success && result.csvData) {
-        setCsvData(result.csvData);
+      if (result.success && result.resultData) {
+        setCsvData(result.csvData || null);
+        setResultData(result.resultData);
+        
+        // Extract unique stores
+        const lojas = Array.from(new Set(result.resultData.map(r => r['Sucursal'])))
+          .filter(Boolean)
+          .sort() as string[];
+          
+        setAvailableLojas(lojas);
+        setSelectedLojas(lojas); // Select all by default
       } else {
         if (result.errors && result.errors.length > 0) {
           setErrors(result.errors);
@@ -48,9 +64,21 @@ export default function App() {
   };
 
   const handleDownload = () => {
-    if (!csvData) return;
+    if (!resultData) return;
     
-    const blob = new Blob(['\uFEFF' + csvData], { type: 'text/csv;charset=utf-8;' });
+    const filteredData = resultData.filter(row => selectedLojas.includes(row['Sucursal']));
+    
+    if (filteredData.length === 0) {
+      setError('Nenhum dado para exportar com os filtros selecionados.');
+      return;
+    }
+
+    const csv = Papa.unparse(filteredData, {
+      delimiter: ';',
+      header: true,
+    });
+    
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
@@ -65,6 +93,9 @@ export default function App() {
     setPrecosFile(null);
     setProdutosFile(null);
     setCsvData(null);
+    setResultData(null);
+    setAvailableLojas([]);
+    setSelectedLojas([]);
     setError(null);
     setErrors([]);
   };
@@ -116,21 +147,66 @@ export default function App() {
         />
 
         {/* Mapping Visual */}
-        <div className="col-span-full bg-white border border-[#DADCE0] rounded-xl p-6 mt-6 hidden md:flex items-center justify-around relative">
-          <div className="absolute h-[2px] bg-[#DADCE0] w-[70%] top-[60px] z-10"></div>
-          <div className="text-center z-20 bg-white px-4">
-            <div className="text-[11px] text-[#5F6368] mb-2">VENDAS</div>
-            <div className="font-mono bg-[#F8F9FA] px-3 py-1.5 rounded border border-[#DADCE0] font-semibold text-[#1A73E8]">Código5</div>
+        {!resultData && (
+          <div className="col-span-full bg-white border border-[#DADCE0] rounded-xl p-6 mt-6 hidden md:flex items-center justify-around relative">
+            <div className="absolute h-[2px] bg-[#DADCE0] w-[70%] top-[60px] z-10"></div>
+            <div className="text-center z-20 bg-white px-4">
+              <div className="text-[11px] text-[#5F6368] mb-2">VENDAS</div>
+              <div className="font-mono bg-[#F8F9FA] px-3 py-1.5 rounded border border-[#DADCE0] font-semibold text-[#1A73E8]">Código5</div>
+            </div>
+            <div className="text-center z-20 bg-white px-4">
+              <div className="text-[11px] text-[#5F6368] mb-2">PREÇOS</div>
+              <div className="font-mono bg-[#F8F9FA] px-3 py-1.5 rounded border border-[#DADCE0] font-semibold text-[#1A73E8]">N&amp;L</div>
+            </div>
+            <div className="text-center z-20 bg-white px-4">
+              <div className="text-[11px] text-[#5F6368] mb-2">CADASTRO</div>
+              <div className="font-mono bg-[#F8F9FA] px-3 py-1.5 rounded border border-[#DADCE0] font-semibold text-[#1A73E8]">Codigo</div>
+            </div>
           </div>
-          <div className="text-center z-20 bg-white px-4">
-            <div className="text-[11px] text-[#5F6368] mb-2">PREÇOS</div>
-            <div className="font-mono bg-[#F8F9FA] px-3 py-1.5 rounded border border-[#DADCE0] font-semibold text-[#1A73E8]">N&amp;L</div>
+        )}
+
+        {/* Filter UI */}
+        {resultData && availableLojas.length > 0 && (
+          <div className="col-span-full bg-white border border-[#DADCE0] rounded-xl p-6 mt-6">
+            <h3 className="text-[14px] uppercase tracking-[1px] text-[#5F6368] font-semibold mb-4 flex items-center gap-2">
+              <Filter className="w-4 h-4" />
+              Filtrar por Loja (Sucursal)
+            </h3>
+            <div className="max-h-48 overflow-y-auto flex flex-wrap gap-3 p-1">
+              {availableLojas.map(loja => (
+                <label key={loja} className="flex items-center gap-2 text-[14px] bg-[#F8F9FA] border border-[#DADCE0] px-3 py-2 rounded-md cursor-pointer hover:bg-[#E8F0FE] hover:border-[#1A73E8] transition-colors">
+                  <input 
+                    type="checkbox" 
+                    checked={selectedLojas.includes(loja)}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSelectedLojas([...selectedLojas, loja]);
+                      } else {
+                        setSelectedLojas(selectedLojas.filter(l => l !== loja));
+                      }
+                    }}
+                    className="rounded border-gray-300 text-[#1A73E8] focus:ring-[#1A73E8]"
+                  />
+                  {loja}
+                </label>
+              ))}
+            </div>
+            <div className="mt-4 flex gap-4 text-[13px]">
+              <button 
+                onClick={() => setSelectedLojas(availableLojas)}
+                className="text-[#1A73E8] hover:underline font-medium"
+              >
+                Selecionar Todas
+              </button>
+              <button 
+                onClick={() => setSelectedLojas([])}
+                className="text-[#5F6368] hover:underline font-medium"
+              >
+                Limpar Seleção
+              </button>
+            </div>
           </div>
-          <div className="text-center z-20 bg-white px-4">
-            <div className="text-[11px] text-[#5F6368] mb-2">CADASTRO</div>
-            <div className="font-mono bg-[#F8F9FA] px-3 py-1.5 rounded border border-[#DADCE0] font-semibold text-[#1A73E8]">Codigo</div>
-          </div>
-        </div>
+        )}
 
         {/* Errors */}
         {(error || errors.length > 0) && (

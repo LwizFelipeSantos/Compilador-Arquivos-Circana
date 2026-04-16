@@ -5,6 +5,7 @@ export interface ProcessResult {
   success: boolean;
   message?: string;
   csvData?: string;
+  resultData?: any[];
   errors?: string[];
 }
 
@@ -79,7 +80,7 @@ export async function processFiles(
 
       resultData.push({
         'Código Fornecedor': '1',
-        'Fornecedor (Local)': 'TABATINGA FREE SHOP COM.EXP.IMP.LTDA',
+        'Fornecedor (Local)': 'TOP INTERNACIONAL LTDA',
         'Código Sucursal': venda['CÓD'] || '',
         'Sucursal': venda['LOJA'] || '',
         'Código Prod do Fornecedor': produto['Ref. Fornecedor'] || '',
@@ -108,7 +109,7 @@ export async function processFiles(
       header: true,
     });
 
-    return { success: true, csvData };
+    return { success: true, csvData, resultData };
   } catch (error: any) {
     return { success: false, message: 'Erro ao processar arquivos: ' + error.message };
   }

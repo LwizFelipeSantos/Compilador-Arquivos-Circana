@@ -200,12 +200,11 @@ function parseExcelDate(excelDate: any): Date | null {
   
   // If it's a number (Excel serial date)
   if (typeof excelDate === 'number') {
-    // Excel dates are days since 1900-01-01. 
-    // 25569 is the number of days between 1900-01-01 and 1970-01-01
-    const date = new Date((excelDate - (25569 + 1)) * 86400 * 1000);
-    // Add timezone offset to avoid day shifting
-    date.setMinutes(date.getMinutes() + date.getTimezoneOffset());
-    return date;
+    // 25569 is the offset between 1900-01-01 and 1970-01-01
+    // We use Math.round to avoid floating point precision issues
+    const date = new Date(Math.round((excelDate - 25569) * 86400 * 1000));
+    // Use UTC methods to extract the exact year/month/day without local timezone shifts
+    return new Date(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
   }
   
   // If it's a string
